@@ -23,3 +23,5 @@
 #define SYS_sync   22
 #define SYS_getpinfo 22
 #define SYS_sleep 13
+#define SYS_setpriority 23
+#define SYS_settickets 24

@@ -46,3 +46,4 @@ entry("sync");
 entry("getpinfo");
 
 entry("sleep");
+entry("setpriority");

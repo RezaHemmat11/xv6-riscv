@@ -118,3 +118,15 @@ sys_getpinfo(void)
   extern int fill_pinfo(uint64);
   return fill_pinfo(pinfo_addr);
 }
+
+uint64
+sys_setpriority(void)
+{
+  int pid, priority;
+
+  argint(0, &pid);
+  argint(1, &priority);
+
+  extern int setpriority(int, int);
+  return setpriority(pid, priority);
+}

@@ -107,3 +107,14 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getpinfo(void)
+{
+  uint64 pinfo_addr;
+
+  argaddr(0, &pinfo_addr);
+
+  extern int fill_pinfo(uint64);
+  return fill_pinfo(pinfo_addr);
+}

@@ -61,6 +61,9 @@ OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
 CFLAGS = -Wall -Werror -Wno-unknown-attributes -O -fno-omit-frame-pointer -ggdb -gdwarf-2
+ifdef SCHEDULER
+CFLAGS += -D$(SCHEDULER)
+endif
 CFLAGS += -march=rv64gc
 CFLAGS += -std=gnu99
 CFLAGS += -MD
@@ -150,6 +153,7 @@ UPROGS=\
         $U/_test_pinfo\
         $U/_chpri\
         $U/_test_prio\
+        $U/_test_lottery\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

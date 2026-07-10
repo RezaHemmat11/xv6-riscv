@@ -125,6 +125,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->priority = 50;
+  p->tickets = 1;
   p->state = USED;
 
   // Allocate a trapframe page.
@@ -277,7 +278,7 @@ kfork(void)
     return -1;
   }
   np->sz = p->sz;
-
+  np->tickets = p->tickets;
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
@@ -423,6 +424,18 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+unsigned int
+random_at_most(unsigned int max)
+{
+  static unsigned long randstate = 1;
+  extern uint ticks;
+
+  if (randstate == 1) randstate = ticks;
+  randstate = randstate * 1664525 + 1013904223;
+
+  return randstate % max;
+}
+
 void
 scheduler(void)
 {
@@ -433,8 +446,8 @@ scheduler(void)
   for(;;){
     intr_on();
 
+#ifdef PRIORITY
     int best_prio = 101;
-
     for(p = proc; p < &proc[64]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE && p->priority < best_prio) {
@@ -455,8 +468,51 @@ scheduler(void)
         release(&p->lock);
       }
     }
+#elif defined(LOTTERY)
+    int total_tickets = 0;
+    for(p = proc; p < &proc[64]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        total_tickets += p->tickets;
+      }
+      release(&p->lock);
+    }
+
+    if(total_tickets > 0){
+      int winning_ticket = random_at_most(total_tickets);
+      int current_ticket = 0;
+
+      for(p = proc; p < &proc[64]; p++){
+        acquire(&p->lock);
+        if(p->state == RUNNABLE){
+          current_ticket += p->tickets;
+          if(current_ticket > winning_ticket){
+            p->state = RUNNING;
+            c->proc = p;
+            swtch(&c->context, &p->context);
+            c->proc = 0;
+            release(&p->lock);
+            break;
+          }
+        }
+        release(&p->lock);
+      }
+    }
+#else
+    for(p = proc; p < &proc[64]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+        c->proc = 0;
+      }
+      release(&p->lock);
+    }
+#endif
   }
 }
+
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this

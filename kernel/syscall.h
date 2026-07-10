@@ -25,3 +25,4 @@
 #define SYS_sleep 13
 #define SYS_setpriority 23
 #define SYS_settickets 24
+#define SYS_settickets 24

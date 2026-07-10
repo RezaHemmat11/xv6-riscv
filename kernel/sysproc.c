@@ -130,3 +130,17 @@ sys_setpriority(void)
   extern int setpriority(int, int);
   return setpriority(pid, priority);
 }
+
+uint64
+sys_settickets(void)
+{
+  int number;
+
+  argint(0, &number);
+
+  if(number < 1)
+    return -1;
+
+  myproc()->tickets = number;
+  return 0;
+}

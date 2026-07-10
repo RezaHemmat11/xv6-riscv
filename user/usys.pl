@@ -47,3 +47,4 @@ entry("getpinfo");
 
 entry("sleep");
 entry("setpriority");
+entry("settickets");

@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "pinfo.h"
 #include "defs.h"
 #include "pinfo.h"
 
@@ -124,11 +125,11 @@ allocproc(void)
 
 found:
   p->pid = allocpid();
-  p->priority = 50;
-  p->tickets = 1;
   p->state = USED;
+  p->priority = 0;
+  p->tickets = 0;
 
-  // Allocate a trapframe page.
+// Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
     freeproc(p);
     release(&p->lock);
@@ -172,6 +173,8 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->priority = 0;
+  p->tickets = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -741,15 +744,20 @@ procdump(void)
     printk("\n");
   }
 }
+/////////////////////////////////////////////////////////////
 
 int
 fill_pinfo(uint64 addr)
 {
   struct pinfo info;
   struct proc *p;
-  int i = 0;
+  struct proc *current;
+  int i;
 
-  for(p = proc; p < &proc[64]; p++){
+  memset(&info, 0, sizeof(info));
+
+  i = 0;
+  for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     info.pid[i] = p->pid;
     info.state[i] = p->state;
@@ -759,26 +767,63 @@ fill_pinfo(uint64 addr)
     i++;
   }
 
-  struct proc *my_p = myproc();
-  if(copyout(my_p->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+  current = myproc();
+
+  if(copyout(current->pagetable, addr, (char *)&info, sizeof(info)) < 0)
     return -1;
 
   return 0;
 }
+
+
+////////////////////////////////////////
+
+
 
 int
 setpriority(int pid, int priority)
 {
   struct proc *p;
 
-  for(p = proc; p < &proc[64]; p++){
+  if(priority < 0)
+    return -1;
+
+  for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
-    if(p->pid == pid){
+
+    if(p->state != UNUSED && p->pid == pid){
       p->priority = priority;
       release(&p->lock);
       return 0;
     }
+
     release(&p->lock);
   }
+
   return -1;
 }
+
+int
+settickets(int pid, int tickets)
+{
+  struct proc *p;
+
+  if(tickets < 1)
+    return -1;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+
+    if(p->state != UNUSED && p->pid == pid){
+      p->tickets = tickets;
+      release(&p->lock);
+      return 0;
+    }
+
+    release(&p->lock);
+  }
+
+  return -1;
+}
+
+////////////////////////////////

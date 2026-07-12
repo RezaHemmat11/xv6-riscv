@@ -111,12 +111,11 @@ sys_uptime(void)
 uint64
 sys_getpinfo(void)
 {
-  uint64 pinfo_addr;
+  uint64 addr;
 
-  argaddr(0, &pinfo_addr);
+  argaddr(0, &addr);
 
-  extern int fill_pinfo(uint64);
-  return fill_pinfo(pinfo_addr);
+  return fill_pinfo(addr);
 }
 
 uint64
@@ -127,20 +126,17 @@ sys_setpriority(void)
   argint(0, &pid);
   argint(1, &priority);
 
-  extern int setpriority(int, int);
   return setpriority(pid, priority);
 }
 
 uint64
 sys_settickets(void)
 {
-  int number;
+  int pid;
+  int tickets;
 
-  argint(0, &number);
+  argint(0, &pid);
+  argint(1, &tickets);
 
-  if(number < 1)
-    return -1;
-
-  myproc()->tickets = number;
-  return 0;
+  return settickets(pid, tickets);
 }

@@ -18,11 +18,11 @@
 #define SYS_mknod  17
 #define SYS_unlink 18
 #define SYS_link   19
-#define SYS_mkdir  20
-#define SYS_close  21
-#define SYS_sync   22
-#define SYS_getpinfo 22
-#define SYS_sleep 13
+#define SYS_mkdir 20
+#define SYS_close 21
+#define SYS_sync 22
 #define SYS_setpriority 23
 #define SYS_settickets 24
-#define SYS_settickets 24
+#define SYS_getpinfo 25
+
+

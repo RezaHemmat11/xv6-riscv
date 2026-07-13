@@ -127,7 +127,7 @@ found:
   p->pid = allocpid();
   p->state = USED;
   p->priority = 50;
-  p->tickets = 0;
+  p->tickets = 1;
   p->age = 0;
 
 // Allocate a trapframe page.
@@ -430,17 +430,14 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
-unsigned int
-random_at_most(unsigned int max)
+#ifdef LOTTERY
+static uint64
+lottery_random(uint64 *state)
 {
-  static unsigned long randstate = 1;
-  extern uint ticks;
-
-  if (randstate == 1) randstate = ticks;
-  randstate = randstate * 1664525 + 1013904223;
-
-  return randstate % max;
+  *state = *state * 6364136223846793005ULL + 1;
+  return *state;
 }
+#endif
 
 void
 scheduler(void)
@@ -450,6 +447,14 @@ scheduler(void)
 
 #ifdef PRIORITY
   int last_index = -1;
+#endif
+
+#ifdef LOTTERY
+  uint64 lottery_state;
+
+  acquire(&tickslock);
+  lottery_state = (uint64)ticks + (uint64)(c - cpus) + 1;
+  release(&tickslock);
 #endif
 
   c->proc = 0;
@@ -516,26 +521,29 @@ scheduler(void)
       }
     }
 #elif defined(LOTTERY)
-    int total_tickets = 0;
+    uint64 total_tickets = 0;
 
     for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
 
-      if(p->state == RUNNABLE)
-        total_tickets += p->tickets;
+      if(p->state == RUNNABLE && p->tickets > 0)
+        total_tickets += (uint64)p->tickets;
 
       release(&p->lock);
     }
 
     if(total_tickets > 0){
-      int winning_ticket = random_at_most(total_tickets);
-      int current_ticket = 0;
+      uint64 winning_ticket;
+      uint64 current_ticket;
+
+      winning_ticket = lottery_random(&lottery_state) % total_tickets;
+      current_ticket = 0;
 
       for(p = proc; p < &proc[NPROC]; p++){
         acquire(&p->lock);
 
-        if(p->state == RUNNABLE){
-          current_ticket += p->tickets;
+        if(p->state == RUNNABLE && p->tickets > 0){
+          current_ticket += (uint64)p->tickets;
 
           if(current_ticket > winning_ticket){
             p->state = RUNNING;
@@ -855,27 +863,24 @@ setpriority(int pid, int priority)
   return -1;
 }
 
+////////////////////
 int
-settickets(int pid, int tickets)
+settickets(int tickets)
 {
   struct proc *p;
 
   if(tickets < 1)
     return -1;
 
-  for(p = proc; p < &proc[NPROC]; p++){
-    acquire(&p->lock);
+  p = myproc();
 
-    if(p->state != UNUSED && p->pid == pid){
-      p->tickets = tickets;
-      release(&p->lock);
-      return 0;
-    }
+  acquire(&p->lock);
+  p->tickets = tickets;
+  release(&p->lock);
 
-    release(&p->lock);
-  }
-
-  return -1;
+  return 0;
 }
 
 ////////////////////////////////
+
+

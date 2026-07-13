@@ -132,11 +132,8 @@ sys_setpriority(void)
 uint64
 sys_settickets(void)
 {
-  int pid;
   int tickets;
 
-  argint(0, &pid);
-  argint(1, &tickets);
-
-  return settickets(pid, tickets);
+  argint(0, &tickets);
+  return settickets(tickets);
 }

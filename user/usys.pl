@@ -44,7 +44,5 @@ entry("pause");
 entry("uptime");
 entry("sync");
 entry("getpinfo");
-
-entry("sleep");
 entry("setpriority");
 entry("settickets");

@@ -44,4 +44,7 @@ main(void)
            state_name(info.state[i]),
            info.priority[i],
            info.tickets[i]);
+  }
 
+  exit(0);
+}

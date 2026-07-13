@@ -153,6 +153,8 @@ UPROGS=\
         $U/_test_pinfo\
         $U/_chpri\
         $U/_test_prio\
+        $U/_test_prio_rr\
+        $U/_test_pstress\
         $U/_test_lottery\
 
 fs.img: mkfs/mkfs README $(UPROGS)

@@ -126,8 +126,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-  p->priority = 0;
+  p->priority = 50;
   p->tickets = 0;
+  p->age = 0;
 
 // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -175,6 +176,8 @@ freeproc(struct proc *p)
   p->state = UNUSED;
   p->priority = 0;
   p->tickets = 0;
+  p->age = 0;
+
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -445,39 +448,82 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
 
+#ifdef PRIORITY
+  int last_index = -1;
+#endif
+
   c->proc = 0;
+
   for(;;){
     intr_on();
 
 #ifdef PRIORITY
-    int best_prio = 101;
-    for(p = proc; p < &proc[64]; p++) {
+    int best_priority = 101;
+    int selected = -1;
+
+    for(int offset = 1; offset <= NPROC; offset++){
+      int index = (last_index + offset) % NPROC;
+      p = &proc[index];
+
       acquire(&p->lock);
-      if(p->state == RUNNABLE && p->priority < best_prio) {
-        best_prio = p->priority;
+
+      if(p->state == RUNNABLE){
+        int effective_priority = p->priority - p->age;
+
+        if(effective_priority < 0)
+          effective_priority = 0;
+
+        if(effective_priority < best_priority){
+          best_priority = effective_priority;
+          selected = index;
+        }
       }
+
       release(&p->lock);
     }
 
-    if(best_prio != 101) {
-      for(p = proc; p < &proc[64]; p++) {
-        acquire(&p->lock);
-        if(p->state == RUNNABLE && p->priority == best_prio) {
-          p->state = RUNNING;
-          c->proc = p;
-          swtch(&c->context, &p->context);
-          c->proc = 0;
+    if(selected >= 0){
+      int ran = 0;
+      p = &proc[selected];
+
+      acquire(&p->lock);
+
+      if(p->state == RUNNABLE){
+        p->age = 0;
+        last_index = selected;
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+        c->proc = 0;
+        ran = 1;
+      }
+
+      release(&p->lock);
+
+      if(ran){
+        for(int i = 0; i < NPROC; i++){
+          if(i == selected)
+            continue;
+
+          p = &proc[i];
+          acquire(&p->lock);
+
+          if(p->state == RUNNABLE && p->age < 100)
+            p->age++;
+
+          release(&p->lock);
         }
-        release(&p->lock);
       }
     }
 #elif defined(LOTTERY)
     int total_tickets = 0;
-    for(p = proc; p < &proc[64]; p++){
+
+    for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
-      if(p->state == RUNNABLE){
+
+      if(p->state == RUNNABLE)
         total_tickets += p->tickets;
-      }
+
       release(&p->lock);
     }
 
@@ -485,10 +531,12 @@ scheduler(void)
       int winning_ticket = random_at_most(total_tickets);
       int current_ticket = 0;
 
-      for(p = proc; p < &proc[64]; p++){
+      for(p = proc; p < &proc[NPROC]; p++){
         acquire(&p->lock);
+
         if(p->state == RUNNABLE){
           current_ticket += p->tickets;
+
           if(current_ticket > winning_ticket){
             p->state = RUNNING;
             c->proc = p;
@@ -498,18 +546,21 @@ scheduler(void)
             break;
           }
         }
+
         release(&p->lock);
       }
     }
 #else
-    for(p = proc; p < &proc[64]; p++) {
+    for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+
+      if(p->state == RUNNABLE){
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
         c->proc = 0;
       }
+
       release(&p->lock);
     }
 #endif
@@ -785,7 +836,7 @@ setpriority(int pid, int priority)
 {
   struct proc *p;
 
-  if(priority < 0)
+  if(pid <= 0 || priority < 0 || priority > 100)
     return -1;
 
   for(p = proc; p < &proc[NPROC]; p++){
@@ -793,6 +844,7 @@ setpriority(int pid, int priority)
 
     if(p->state != UNUSED && p->pid == pid){
       p->priority = priority;
+      p->age = 0;
       release(&p->lock);
       return 0;
     }

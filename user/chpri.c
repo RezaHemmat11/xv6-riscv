@@ -5,23 +5,32 @@
 int
 main(int argc, char *argv[])
 {
-  if (argc != 3) {
+  int pid;
+  int priority;
+
+  if(argc != 3){
     printf("Usage: chpri [pid] [priority]\n");
     exit(1);
   }
-  
-  int pid = atoi(argv[1]);
-  int priority = atoi(argv[2]);
-  
-  if (priority < 0 || priority > 100) {
+
+  pid = atoi(argv[1]);
+  priority = atoi(argv[2]);
+
+  if(pid <= 0){
+    printf("Invalid pid\n");
+    exit(1);
+  }
+
+  if(priority < 0 || priority > 100){
     printf("Priority must be between 0 and 100\n");
     exit(1);
   }
-  
-  if (setpriority(pid, priority) < 0) {
+
+  if(setpriority(pid, priority) < 0){
     printf("setpriority failed\n");
     exit(1);
   }
-  
+
+  printf("pid %d priority changed to %d\n", pid, priority);
   exit(0);
 }
